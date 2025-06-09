@@ -1,0 +1,7 @@
+python-telegram-bot==21.9
+openai==1.57.3
+python-dotenv==1.0.0
+requests==2.31.0
+asyncio==3.4.3
+PyPDF2==3.0.1
+python-docx==0.8.11 
