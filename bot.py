@@ -543,11 +543,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 disable_web_page_preview=True
             )
         
-            # Возвращаем главное меню
-    await update.message.reply_text(
-        "Выберите следующее действие:",
-        reply_markup=get_main_keyboard()
-    )
+        # Возвращаем главное меню
+        await update.message.reply_text(
+            "Выберите следующее действие:",
+            reply_markup=get_main_keyboard()
+        )
     
     else:
         # Если пользователь пишет без контекста
