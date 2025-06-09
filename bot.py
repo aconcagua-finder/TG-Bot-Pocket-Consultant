@@ -592,11 +592,17 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Извлекаем текст из файла
         document_text = extract_text_from_file(file_content, file_extension)
         
+        # Проверяем что текст извлечен
+        if not document_text or len(document_text.strip()) < 10:
+            raise Exception("Не удалось извлечь текст из документа или документ слишком короткий")
+        
         # Формируем запрос для ChatGPT
         if waiting_for == 'analyze_document':
             prompt = "Проанализируй этот юридический документ. Выдели основные пункты, возможные риски и рекомендации."
         else:  # edit_document
             prompt = "Отредактируй и улучши этот документ с точки зрения юридической корректности и ясности изложения."
+        
+        logger.info(f"Processing {waiting_for} for user {user.id}, document length: {len(document_text)} chars")
         
         # Запрос к ChatGPT
         response = await ask_chatgpt(prompt, document_text[:8000])  # Ограничиваем длину
@@ -650,8 +656,19 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     except Exception as e:
         logger.error(f"Document processing error: {e}")
+        
+        # Более детализированные сообщения об ошибках
+        if "No response received" in str(e):
+            error_msg = "❌ Не удалось получить ответ от AI. Попробуйте позже."
+        elif "extract text" in str(e).lower():
+            error_msg = "❌ Не удалось прочитать текст из документа. Проверьте что файл не поврежден и содержит текст."
+        elif "слишком короткий" in str(e):
+            error_msg = "❌ Документ слишком короткий или не содержит читаемого текста."
+        else:
+            error_msg = f"❌ Произошла ошибка при обработке документа: {str(e)[:100]}"
+        
         await update.message.reply_text(
-            "❌ Произошла ошибка при обработке документа. Попробуйте позже.",
+            error_msg,
             reply_markup=get_main_keyboard()
         )
     
