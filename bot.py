@@ -567,6 +567,15 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
+    # Дополнительная проверка для редактирования
+    if waiting_for == 'edit_document' and file_extension == '.pdf':
+        await update.message.reply_text(
+            "❌ PDF файлы нельзя редактировать, только анализировать.\n\n"
+            "Для редактирования используйте форматы: .txt, .docx",
+            reply_markup=get_main_keyboard()
+        )
+        return
+    
     log_user_action(user.id, user.username or "Unknown", f"{waiting_for}_file", document.file_name)
     
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
@@ -608,7 +617,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if waiting_for == 'analyze_document':
             prompt = "Проанализируй этот юридический документ. Выдели основные пункты, возможные риски и рекомендации."
         else:  # edit_document
-            prompt = "Отредактируй и улучши этот документ с точки зрения юридической корректности и ясности изложения."
+            prompt = "Отредактируй и улучши этот документ с точки зрения юридической корректности и ясности изложения. ВАЖНО: В ответе присылай ТОЛЬКО отредактированный текст документа, без дополнительных комментариев, объяснений или вводных фраз."
         
         logger.info(f"Processing {waiting_for} for user {user.id}, document length: {len(document_text)} chars")
         
@@ -635,32 +644,92 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if response is None:
             raise Exception("No response received")
-        formatted_response = markdown_to_html(response)
         
-        final_response = (
-            f"📄 <b>Результат обработки документа:</b>\n\n"
-            f"{formatted_response}\n\n"
-            "⚠️ <b>Важно:</b> Это упрощенная версия анализа. "
-            "Для полной юридической экспертизы обратитесь к специалисту.\n\n"
-            "🌟 Полная профессиональная версия доступна на "
-            "<a href='https://pocket-consultant.ru'>pocket-consultant.ru</a>"
-        )
-        
-        # Отправляем ответ (с учетом лимита символов)
-        if len(final_response) > 4000:
-            parts = [final_response[i:i+4000] for i in range(0, len(final_response), 4000)]
-            for part in parts:
+        if waiting_for == 'edit_document':
+            # Для редактирования отправляем файл
+            try:
+                # Создаем отредактированный файл
+                if file_extension == '.txt':
+                    # Для текстовых файлов просто сохраняем ответ
+                    edited_content = response.encode('utf-8')
+                    new_filename = f"edited_{document.file_name}"
+                    
+                elif file_extension == '.docx':
+                    # Для DOCX файлов создаем новый документ
+                    from docx import Document as DocxDocument
+                    doc = DocxDocument()
+                    # Разбиваем текст на параграфы
+                    paragraphs = response.split('\n\n')
+                    for paragraph_text in paragraphs:
+                        if paragraph_text.strip():
+                            doc.add_paragraph(paragraph_text.strip())
+                    
+                    # Сохраняем в BytesIO
+                    docx_buffer = io.BytesIO()
+                    doc.save(docx_buffer)
+                    edited_content = docx_buffer.getvalue()
+                    new_filename = f"edited_{document.file_name}"
+                    
+                else:  # PDF не поддерживаем для редактирования, только для анализа
+                    raise Exception("PDF файлы нельзя редактировать, только анализировать")
+                
+                # Отправляем файл
+                await update.message.reply_document(
+                    document=io.BytesIO(edited_content),
+                    filename=new_filename,
+                    caption=(
+                        "✅ <b>Документ отредактирован</b>\n\n"
+                        "⚠️ <b>Важно:</b> Это автоматическое редактирование. "
+                        "Обязательно проверьте результат и проконсультируйтесь с юристом.\n\n"
+                        "🌟 Полная профессиональная версия доступна на "
+                        "<a href='https://pocket-consultant.ru'>pocket-consultant.ru</a>"
+                    ),
+                    parse_mode=ParseMode.HTML
+                )
+                
+            except Exception as e:
+                logger.error(f"Error creating edited file: {e}")
+                # В случае ошибки создания файла отправляем текстом
+                formatted_response = markdown_to_html(response)
                 await update.message.reply_text(
-                    part,
+                    f"📄 <b>Отредактированный документ:</b>\n\n"
+                    f"{formatted_response}\n\n"
+                    "❌ <b>Не удалось создать файл, поэтому отправляю текстом.</b>\n\n"
+                    "⚠️ <b>Важно:</b> Это автоматическое редактирование. "
+                    "Обязательно проверьте результат и проконсультируйтесь с юристом.\n\n"
+                    "🌟 Полная профессиональная версия доступна на "
+                    "<a href='https://pocket-consultant.ru'>pocket-consultant.ru</a>",
                     parse_mode=ParseMode.HTML,
                     disable_web_page_preview=True
                 )
         else:
-            await update.message.reply_text(
-                final_response,
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=True
+            # Для анализа отправляем текстом как раньше
+            formatted_response = markdown_to_html(response)
+            
+            final_response = (
+                f"📄 <b>Результат анализа документа:</b>\n\n"
+                f"{formatted_response}\n\n"
+                "⚠️ <b>Важно:</b> Это упрощенная версия анализа. "
+                "Для полной юридической экспертизы обратитесь к специалисту.\n\n"
+                "🌟 Полная профессиональная версия доступна на "
+                "<a href='https://pocket-consultant.ru'>pocket-consultant.ru</a>"
             )
+            
+            # Отправляем ответ (с учетом лимита символов)
+            if len(final_response) > 4000:
+                parts = [final_response[i:i+4000] for i in range(0, len(final_response), 4000)]
+                for part in parts:
+                    await update.message.reply_text(
+                        part,
+                        parse_mode=ParseMode.HTML,
+                        disable_web_page_preview=True
+                    )
+            else:
+                await update.message.reply_text(
+                    final_response,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True
+                )
     
     except Exception as e:
         logger.error(f"Document processing error: {e}")
