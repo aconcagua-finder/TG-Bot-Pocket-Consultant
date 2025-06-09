@@ -34,10 +34,14 @@ logger = logging.getLogger(__name__)
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 PERPLEXITY_API_KEY = os.getenv('PERPLEXITY_API_KEY')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 
-# Инициализация OpenAI
+# Инициализация OpenRouter (используем OpenAI SDK с изменённым базовым URL)
 from openai import AsyncOpenAI
-openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+openrouter_client = AsyncOpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=OPENROUTER_API_KEY
+)
 
 # Хранилище для лимитов пользователей
 user_limits = {}
@@ -384,27 +388,31 @@ async def ask_perplexity(question: str) -> str:
         return "Извините, произошла ошибка при обработке вашего запроса. Попробуйте позже."
 
 async def ask_chatgpt(prompt: str, document_content: str = "") -> str:
-    """Запрос к ChatGPT API"""
+    """Запрос к OpenAI через OpenRouter API"""
     try:
         if document_content:
             full_prompt = f"{prompt}\n\nДокумент для обработки:\n{document_content}"
         else:
             full_prompt = prompt
         
-        response = await openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+        response = await openrouter_client.chat.completions.create(
+            model="openai/gpt-4o-mini",  # Используем OpenAI модель через OpenRouter
             messages=[
                 {"role": "system", "content": "Ты — профессиональный юрист, специализирующийся на анализе и редактировании юридических документов по российскому праву. Работай только с юридическими документами. Если документ не связан с правовыми вопросами, вежливо откажись его обрабатывать и предложи прислать юридический документ."},
                 {"role": "user", "content": full_prompt}
             ],
             max_tokens=3000,
-            temperature=0.3
+            temperature=0.3,
+            extra_headers={
+                "HTTP-Referer": "https://pocket-consultant.ru",
+                "X-Title": "Pocket Consultant Bot"
+            }
         )
         
         return response.choices[0].message.content
     
     except Exception as e:
-        logger.error(f"ChatGPT API error: {e}")
+        logger.error(f"OpenRouter API error: {e}")
         return "Извините, произошла ошибка при обработке документа. Попробуйте позже."
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
