@@ -162,9 +162,9 @@ def markdown_to_html(text: str) -> str:
     # Убираем оставшуюся markdown разметку  
     text = re.sub(r'[\[\]()]', '', text)
     
-    # Убираем множественные пробелы и переносы строк
-    text = re.sub(r'\s+', ' ', text)
-    text = re.sub(r'\n\s*\n', '\n\n', text)
+    # Нормализуем переносы строк (сохраняем структуру)
+    text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)  # Убираем лишние пустые строки
+    text = re.sub(r'[ \t]+', ' ', text)  # Убираем только лишние пробелы и табы, НЕ переносы строк
     
     return text.strip()
 
