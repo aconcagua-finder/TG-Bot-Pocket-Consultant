@@ -200,6 +200,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• 10 вопросов\n"
         "• 10 операций с документами\n\n"
         
+        "💻 <b>Больше возможностей:</b> <a href='https://pocket-consultant.ru'>pocket-consultant.ru</a> — "
+        "подробные ответы без ограничений длины и с указанием источников\n\n"
+        
         "💡 Выберите нужное действие:"
     )
     
@@ -217,10 +220,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     
     if query.data == "ask_question":
+        user_limits_obj = get_user_limits(user.id)
+        remaining_questions = DAILY_QUESTION_LIMIT - user_limits_obj.questions_count
+        
         await query.edit_message_text(
             "❓ <b>Задайте ваш юридический вопрос</b>\n\n"
             "Опишите вашу ситуацию подробно. Чем больше деталей вы предоставите, "
             "тем более точный и полезный ответ вы получите.\n\n"
+            f"📊 <b>Осталось вопросов сегодня:</b> {remaining_questions} из {DAILY_QUESTION_LIMIT}\n\n"
             "📝 <i>Просто напишите ваш вопрос в следующем сообщении</i>",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="back_to_main")]])
@@ -228,6 +235,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['waiting_for'] = 'question'
     
     elif query.data == "analyze_document":
+        user_limits_obj = get_user_limits(user.id)
+        remaining_documents = DAILY_DOCUMENT_LIMIT - user_limits_obj.documents_count
+        
         await query.edit_message_text(
             "📄 <b>Анализ документа</b>\n\n"
             "📎 Отправьте документ для анализа\n\n"
@@ -237,6 +247,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• .pdf — PDF документы\n\n"
             "⚠️ <b>Ограничения:</b>\n"
             "• Максимальный размер: 20 МБ\n\n"
+            f"📊 <b>Осталось операций с документами сегодня:</b> {remaining_documents} из {DAILY_DOCUMENT_LIMIT}\n\n"
             "🔍 <b>Что получите:</b> Подробный анализ с выделением ключевых моментов, рисков и рекомендаций",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="back_to_main")]])
@@ -244,6 +255,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['waiting_for'] = 'analyze_document'
     
     elif query.data == "create_document":
+        user_limits_obj = get_user_limits(user.id)
+        remaining_documents = DAILY_DOCUMENT_LIMIT - user_limits_obj.documents_count
+        
         await query.edit_message_text(
             "✍️ <b>Создание документа</b>\n\n"
             "📝 <b>Шаг 1:</b> Опишите какой документ вам нужен\n\n"
@@ -255,6 +269,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• Уведомление о расторжении договора\n"
             "• Трудовой договор для программиста\n"
             "• Договор займа между физлицами\n\n"
+            f"📊 <b>Осталось операций с документами сегодня:</b> {remaining_documents} из {DAILY_DOCUMENT_LIMIT}\n\n"
             "📤 <b>Результат:</b> Готовый документ в формате .docx\n\n"
             "✏️ <i>Напишите подробно что за документ вам нужен</i>",
             parse_mode=ParseMode.HTML,
@@ -288,11 +303,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• Доверенности и уведомления\n"
             "• Трудовые и гражданские документы\n\n"
             
+            "💻 <b>Полная версия:</b> <a href='https://pocket-consultant.ru'>pocket-consultant.ru</a>\n"
+            "• Подробные ответы без ограничений длины\n"
+            "• Указание источников информации\n"
+            "• Расширенные возможности анализа\n\n"
+            
             "⚠️ <b>Важно помнить:</b>\n"
             "Бот предоставляет информационную помощь. Для принятия серьезных "
             "юридических решений обязательно консультируйтесь с квалифицированным юристом.\n\n"
             
-            "📞 <b>Поддержка:</b> @your_support",
+            "📞 <b>Поддержка:</b> @fuji_finder",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="back_to_main")]])
         )
